@@ -4,6 +4,29 @@ const scoreElement = document.getElementById('score');
 const livesElement = document.getElementById('lives');
 const menuOverlay = document.getElementById('menu-overlay');
 const startBtn = document.getElementById('start-btn');
+const container = document.getElementById('game-container');
+
+// Sound synthesis context
+let audioCtx = null;
+
+function playCheckpointSound() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    
+    osc.type = 'square'; // Rectangular retro wave
+    osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+    osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.1); // Slide up to A5
+    
+    gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+    
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.3);
+}
 
 // Game Constants
 const GRID = 40;
@@ -14,12 +37,11 @@ const COLORS = {
     BLACK: '#000000',
     WHITE: '#ffffff',
     FRANK_SKIN: '#5d3b31',
-    FRANK_HAIR: '#7cb342', // Green
+    FRANK_HAIR: '#7cb342',
     LIGHT_GREEN: '#66ff66',
     DARK_GREEN: '#004400',
     YELLOW: '#ffff00',
-    BLUE: '#0000bb',
-    HEART_RED: '#ff0000'
+    BLUE: '#0000bb'
 };
 
 const CAR_PALETTE = ['#ff00ff', '#00ffff', '#ffaa00', '#ffffff', '#ff3333', '#9900ff', '#00ff00', '#ffff00'];
@@ -136,6 +158,7 @@ function checkCollision() {
         lane.reached = true;
         score += 50;
         lastCheckpointY = lane.y;
+        playCheckpointSound(); // Play retroactive synthesized sound
     }
 
     if (lane.type === 'road') {
@@ -160,11 +183,15 @@ function checkCollision() {
     }
 
     if (player.x < -30 || player.x + player.w > CANVAS_W + 30) die();
-    // Safety check for scrolling past player
     if (player.y > -cameraY + CANVAS_H) die();
 }
 
 startBtn.addEventListener('click', () => {
+    // Try Fullscreen on click (Standard way for browsers)
+    if (container.requestFullscreen) container.requestFullscreen();
+    else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+    else if (container.msRequestFullscreen) container.msRequestFullscreen();
+
     gameState = 'PLAYING';
     menuOverlay.style.display = 'none';
     player.reset(true);
@@ -259,29 +286,20 @@ function draw() {
         });
     });
 
-    // DRAW FRANK (WITH ARMS / BRACINHOS)
     const px = player.x + 5;
     const py = player.y + 5;
+    const pw = 20;
     
-    // Skin (Face, Body, Legs)
     ctx.fillStyle = COLORS.FRANK_SKIN;
-    // Torso
-    ctx.fillRect(px, py + 15, 20, 10);
-    // Legs
+    ctx.fillRect(px, py + 15, pw, 10);
     ctx.fillRect(px + 4, py + 25, 4, 5); 
     ctx.fillRect(px + 12, py + 25, 4, 5);
-    // Head
-    ctx.fillRect(px, py + 5, 20, 10);
-    
-    // ARMS (BRACINHOS)
+    ctx.fillRect(px, py + 5, pw, 10);
     ctx.fillRect(px - 4, py + 16, 4, 8); // Arm L
     ctx.fillRect(px + 20, py + 16, 4, 8); // Arm R
 
-    // Hair
     ctx.fillStyle = COLORS.FRANK_HAIR;
-    ctx.fillRect(px, py + 2, 20, 6);
-
-    // Eyes
+    ctx.fillRect(px, py + 2, pw, 6);
     ctx.fillStyle = COLORS.BLACK;
     ctx.fillRect(px + 4, py + 9, 3, 3);
     ctx.fillRect(px + 13, py + 9, 3, 3);

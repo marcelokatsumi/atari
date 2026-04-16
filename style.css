@@ -15,9 +15,20 @@ body {
     position: relative;
     padding: 10px;
     background: #000;
-    border: 4px solid #333;
     display: flex;
     flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 600px;
+}
+
+/* Fullscreen support */
+#game-container:-webkit-full-screen {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    display: flex;
+    justify-content: center;
     align-items: center;
 }
 
@@ -31,7 +42,6 @@ body {
     font-size: 14px;
     color: #ff00ff;
     margin: 5px 0;
-    letter-spacing: 1px;
 }
 
 #score {
@@ -41,13 +51,17 @@ body {
 
 #canvas-wrapper {
     position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
 }
 
 canvas {
     background-color: #000;
     border: 4px solid #fff;
     image-rendering: pixelated;
-    display: block;
+    max-width: 100%;
+    height: auto;
 }
 
 #menu-overlay {
@@ -56,7 +70,7 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.85);
+    background: rgba(0, 0, 0, 0.9);
     display: flex;
     flex-direction: column;
     justify-content: center;
@@ -64,42 +78,27 @@ canvas {
     z-index: 10;
 }
 
-#menu-overlay h2 {
-    font-size: 18px;
-    color: #66ff66;
-    margin-bottom: 30px;
-    text-align: center;
-    line-height: 1.5;
-}
-
 #start-btn {
-    padding: 15px 25px;
+    padding: 20px 30px;
     font-family: 'Press Start 2P', cursive;
-    font-size: 14px;
+    font-size: 18px;
     background-color: #ffff00;
     color: #000;
-    border: 4px solid #fff;
+    border: 6px solid #fff;
     cursor: pointer;
+    box-shadow: 0 0 15px #ffff00;
 }
 
 #ui-bottom {
     width: 100%;
     display: flex;
     justify-content: center;
-    align-items: center;
     margin-top: 10px;
 }
 
 #lives {
     display: flex;
     gap: 10px;
-}
-
-/* Updated Life Indicator: Heart Style */
-.life-heart {
-    width: 20px;
-    height: 20px;
-    font-size: 20px;
 }
 
 p {
