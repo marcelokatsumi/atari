@@ -13,17 +13,34 @@ body {
 
 #game-container {
     position: relative;
-    padding: 20px;
+    padding: 10px;
     background: #000;
     border: 4px solid #333;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
 }
 
 #ui-top {
     width: 100%;
     text-align: center;
     margin-bottom: 10px;
-    color: #ffff00; /* Neon Yellow */
+}
+
+#game-title {
+    font-size: 14px;
+    color: #ff00ff;
+    margin: 5px 0;
+    letter-spacing: 1px;
+}
+
+#score {
+    color: #ffff00;
     font-size: 24px;
+}
+
+#canvas-wrapper {
+    position: relative;
 }
 
 canvas {
@@ -31,6 +48,45 @@ canvas {
     border: 4px solid #fff;
     image-rendering: pixelated;
     display: block;
+}
+
+/* Menu Layout */
+#menu-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+}
+
+#menu-overlay h2 {
+    font-size: 18px;
+    color: #66ff66;
+    margin-bottom: 30px;
+    text-align: center;
+    line-height: 1.5;
+}
+
+#start-btn {
+    padding: 15px 25px;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 14px;
+    background-color: #ffff00;
+    color: #000;
+    border: 4px solid #fff;
+    cursor: pointer;
+    transition: transform 0.1s;
+}
+
+#start-btn:hover {
+    transform: scale(1.1);
+    background-color: #fff;
 }
 
 #ui-bottom {
@@ -69,5 +125,4 @@ p {
     font-size: 10px;
     color: #888;
     margin-top: 15px;
-    text-align: center;
 }

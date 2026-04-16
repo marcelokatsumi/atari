@@ -3,17 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Retro Frogger Adventure (Atari Style)</title>
+    <title>Crossing the Ocean Frank</title>
     <link rel="stylesheet" href="style.css">
-    <!-- Google Fonts for that blocky look -->
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 </head>
 <body>
     <div id="game-container">
         <div id="ui-top">
+            <h1 id="game-title">CROSSING THE OCEAN FRANK</h1>
             <div id="score">000</div>
         </div>
-        <canvas id="gameCanvas" width="480" height="520"></canvas>
+        
+        <div id="canvas-wrapper">
+            <canvas id="gameCanvas" width="480" height="520"></canvas>
+            
+            <!-- Start Menu Overlay -->
+            <div id="menu-overlay">
+                <h2>FRANK'S ADVENTURE</h2>
+                <button id="start-btn">INICIAR JOGO</button>
+            </div>
+        </div>
+
         <div id="ui-bottom">
             <div id="lives"></div>
             <div id="timer-bar"><div id="timer-fill"></div></div>
