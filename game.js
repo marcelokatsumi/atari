@@ -14,16 +14,21 @@ const CANVAS_H = 520;
 const COLORS = {
     BLACK: '#000000',
     WHITE: '#ffffff',
+    FRANK_SKIN: '#5d3b31',
+    FRANK_HAIR: '#7cb342',
     LIGHT_GREEN: '#66ff66',
     DARK_GREEN: '#004400',
     YELLOW: '#ffff00',
     BLUE: '#0000bb'
 };
 
+const CAR_PALETTE = ['#ff00ff', '#00ffff', '#ffaa00', '#ffffff', '#ff3333', '#9900ff', '#00ff00', '#ffff00'];
+const LOG_PALETTE = ['#ffaa00', '#ccaa00', '#ffffff', '#ffcc00'];
+
 const THEMES = [
-    { name: 'CITY', road: '#111111', river: '#000066', safe: '#224400', car: '#ff00ff', log: '#ffaa00' },
-    { name: 'DESERT', road: '#331a00', river: '#aa8800', safe: '#442200', car: '#ffffff', log: '#ffff00' },
-    { name: 'SPACE', road: '#000000', river: '#220044', safe: '#003344', car: '#00ffff', log: '#ffffff' }
+    { name: 'CITY', road: '#111111', river: '#000066', safe: '#224400' },
+    { name: 'DESERT', road: '#331a00', river: '#aa8800', safe: '#442200' },
+    { name: 'SPACE', road: '#000000', river: '#220044', safe: '#004466' }
 ];
 
 let score = 0;
@@ -39,7 +44,6 @@ const player = {
     y: CANVAS_H - GRID,
     w: 30,
     h: 30,
-    color: COLORS.LIGHT_GREEN,
     reset(full = false) {
         if (full || lastCheckpointY === null) {
             this.x = 5 * GRID;
@@ -61,40 +65,35 @@ const CHECKPOINT_FREQ = 10;
 
 function createLane(y, forceType = null) {
     const laneIndex = Math.abs(Math.floor(y / GRID));
+    const cyclePos = laneIndex % CHECKPOINT_FREQ;
     const themeIdx = Math.floor(laneIndex / CHECKPOINT_FREQ) % THEMES.length;
     const theme = THEMES[themeIdx];
     
-    let type = forceType || 'road';
-    if (!forceType) {
-        if (laneIndex % CHECKPOINT_FREQ === 0) {
-            type = 'checkpoint';
-        } else {
-            // REDUCED WATER FREQUENCY: Only 25% chance of river, mostly road
-            if (Math.random() > 0.75 && laneIndex % CHECKPOINT_FREQ > 4) {
-                type = 'river';
-            } else {
-                type = 'road';
-            }
-        }
+    let type = forceType;
+    if (!type) {
+        if (cyclePos === 0) type = 'checkpoint';
+        else if (cyclePos >= 5 && cyclePos <= 8) type = 'river';
+        else type = 'road';
     }
 
-    let speed = (Math.random() > 0.5 ? 1 : -1) * (1.1 + Math.random() * 0.6);
-    
-    // INCREASED GAP FOR FAIRNESS: 
-    // Cars: at least 7 grid spaces apart
-    // Logs: at least 6 grid spaces apart
-    let obsW = (type === 'river') ? 120 : 40;
-    let gap = (type === 'river') ? 350 + Math.random() * 150 : 320 + Math.random() * 180;
+    let speed = (Math.random() > 0.5 ? 1 : -1) * (1.1 + Math.random() * 0.7);
+    let obsW = (type === 'river') ? 130 : 45;
+    let gap = (type === 'river') ? 280 + Math.random() * 80 : 320 + Math.random() * 100;
+
+    // VARIETY: Pick a random color for THIS lane from the palette
+    let obstacleColor = (type === 'river') 
+        ? LOG_PALETTE[Math.floor(Math.random() * LOG_PALETTE.length)]
+        : CAR_PALETTE[Math.floor(Math.random() * CAR_PALETTE.length)];
 
     const rowObstacles = [];
     if (type !== 'checkpoint' && type !== 'sidewalk') {
-        const offset = Math.random() * 500;
+        const offset = Math.random() * 600;
         for (let x = -500 + offset; x < CANVAS_W + 1500; x += gap) {
             rowObstacles.push({ x, w: obsW, h: 32 });
         }
     }
 
-    return { y, type, speed, obsW, obstacles: rowObstacles, reached: false, theme };
+    return { y, type, speed, obsW, obstacleColor, obstacles: rowObstacles, reached: false, theme };
 }
 
 function initMap() {
@@ -148,8 +147,7 @@ function checkCollision() {
 
     if (lane.type === 'road') {
         for (let obs of lane.obstacles) {
-            // Slightly smaller car hitbox for fairness
-            if (player.x < obs.x + obs.w - 4 && player.x + player.w > obs.x + 4) {
+            if (player.x < obs.x + obs.w - 5 && player.x + player.w > obs.x + 5) {
                 die();
                 return;
             }
@@ -159,8 +157,7 @@ function checkCollision() {
     if (lane.type === 'river') {
         let onPlatform = false;
         for (let obs of lane.obstacles) {
-            // Slightly LARGER log hitbox for fairness
-            if (player.x < obs.x + obs.w + 5 && player.x + player.w > obs.x - 5) {
+            if (player.x < obs.x + obs.w + 8 && player.x + player.w > obs.x - 8) {
                 onPlatform = true;
                 player.x += lane.speed;
                 break;
@@ -169,7 +166,7 @@ function checkCollision() {
         if (!onPlatform) die();
     }
 
-    if (player.x < -20 || player.x + player.w > CANVAS_W + 20) die();
+    if (player.x < -30 || player.x + player.w > CANVAS_W + 30) die();
     if (player.y > -cameraY + CANVAS_H) die();
 }
 
@@ -247,13 +244,13 @@ function draw() {
             ctx.textAlign = "center";
             ctx.fillText("CHECKPOINT", CANVAS_W/2, lane.y + 25);
         } else {
-            ctx.fillStyle = '#444'; // sidewalk
+            ctx.fillStyle = '#444'; 
             ctx.fillRect(0, lane.y, CANVAS_W, GRID);
         }
 
         lane.obstacles.forEach(obs => {
             if (lane.type === 'road') {
-                ctx.fillStyle = lane.theme.car;
+                ctx.fillStyle = lane.obstacleColor; // Lane-specific car color
                 ctx.fillRect(obs.x, lane.y + 6, obs.w, 28);
                 ctx.fillStyle = '#000000aa';
                 ctx.fillRect(obs.x + 8, lane.y + 10, obs.w - 16, 20);
@@ -262,7 +259,7 @@ function draw() {
                 ctx.fillRect(hx, lane.y + 8, 4, 4);
                 ctx.fillRect(hx, lane.y + 28, 4, 4);
             } else if (lane.type === 'river') {
-                ctx.fillStyle = lane.theme.log;
+                ctx.fillStyle = lane.obstacleColor; // Lane-specific log color
                 ctx.fillRect(obs.x, lane.y + 4, obs.w, 32);
                 ctx.fillStyle = '#00000022';
                 for(let bx=15; bx < obs.w; bx+=35) ctx.fillRect(obs.x + bx, lane.y + 4, 3, 32);
@@ -270,11 +267,19 @@ function draw() {
         });
     });
 
-    ctx.fillStyle = player.color;
-    ctx.fillRect(player.x + 5, player.y + 5, 30, 30);
+    // DRAW FRANK
+    const px = player.x + 5;
+    const py = player.y + 5;
+    ctx.fillStyle = COLORS.FRANK_SKIN;
+    ctx.fillRect(px, py + 15, 20, 10);
+    ctx.fillRect(px + 4, py + 25, 4, 5); 
+    ctx.fillRect(px + 12, py + 25, 4, 5);
+    ctx.fillRect(px, py + 5, 20, 10);
+    ctx.fillStyle = COLORS.FRANK_HAIR;
+    ctx.fillRect(px, py + 2, 20, 6);
     ctx.fillStyle = COLORS.BLACK;
-    ctx.fillRect(player.x + 8, player.y + 8, 6, 6);
-    ctx.fillRect(player.x + 22, player.y + 8, 6, 6);
+    ctx.fillRect(px + 4, py + 9, 3, 3);
+    ctx.fillRect(px + 13, py + 9, 3, 3);
 
     ctx.restore();
     requestAnimationFrame(draw);
