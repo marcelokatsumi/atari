@@ -2,7 +2,6 @@ const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const scoreElement = document.getElementById('score');
 const livesElement = document.getElementById('lives');
-const timerFill = document.getElementById('timer-fill');
 const menuOverlay = document.getElementById('menu-overlay');
 const startBtn = document.getElementById('start-btn');
 
@@ -15,11 +14,12 @@ const COLORS = {
     BLACK: '#000000',
     WHITE: '#ffffff',
     FRANK_SKIN: '#5d3b31',
-    FRANK_HAIR: '#7cb342',
+    FRANK_HAIR: '#7cb342', // Green
     LIGHT_GREEN: '#66ff66',
     DARK_GREEN: '#004400',
     YELLOW: '#ffff00',
-    BLUE: '#0000bb'
+    BLUE: '#0000bb',
+    HEART_RED: '#ff0000'
 };
 
 const CAR_PALETTE = ['#ff00ff', '#00ffff', '#ffaa00', '#ffffff', '#ff3333', '#9900ff', '#00ff00', '#ffff00'];
@@ -34,7 +34,6 @@ const THEMES = [
 let score = 0;
 let lives = 4;
 let gameState = 'MENU';
-let timer = 100;
 let cameraY = 0;
 let frames = 0;
 let lastCheckpointY = null;
@@ -79,11 +78,7 @@ function createLane(y, forceType = null) {
     let speed = (Math.random() > 0.5 ? 1 : -1) * (1.1 + Math.random() * 0.7);
     let obsW = (type === 'river') ? 130 : 45;
     let gap = (type === 'river') ? 280 + Math.random() * 80 : 320 + Math.random() * 100;
-
-    // VARIETY: Pick a random color for THIS lane from the palette
-    let obstacleColor = (type === 'river') 
-        ? LOG_PALETTE[Math.floor(Math.random() * LOG_PALETTE.length)]
-        : CAR_PALETTE[Math.floor(Math.random() * CAR_PALETTE.length)];
+    let obstacleColor = (type === 'river') ? LOG_PALETTE[Math.floor(Math.random() * LOG_PALETTE.length)] : CAR_PALETTE[Math.floor(Math.random() * CAR_PALETTE.length)];
 
     const rowObstacles = [];
     if (type !== 'checkpoint' && type !== 'sidewalk') {
@@ -111,16 +106,15 @@ function updateUI() {
     scoreElement.textContent = score.toString().padStart(3, '0');
     livesElement.innerHTML = '';
     for (let i = 0; i < lives; i++) {
-        const div = document.createElement('div');
-        div.className = 'life-block';
-        livesElement.appendChild(div);
+        const span = document.createElement('span');
+        span.className = 'life-heart';
+        span.textContent = '❤️';
+        livesElement.appendChild(span);
     }
-    timerFill.style.width = timer + '%';
 }
 
 function die() {
     lives--;
-    timer = 100;
     if (lives < 0) {
         gameState = 'MENU';
         menuOverlay.style.display = 'flex';
@@ -141,7 +135,6 @@ function checkCollision() {
     if (lane.type === 'checkpoint' && !lane.reached) {
         lane.reached = true;
         score += 50;
-        timer = Math.min(100, timer + 40);
         lastCheckpointY = lane.y;
     }
 
@@ -167,6 +160,7 @@ function checkCollision() {
     }
 
     if (player.x < -30 || player.x + player.w > CANVAS_W + 30) die();
+    // Safety check for scrolling past player
     if (player.y > -cameraY + CANVAS_H) die();
 }
 
@@ -190,8 +184,6 @@ window.addEventListener('keydown', e => {
 function update() {
     if (gameState !== 'PLAYING') return;
     frames++;
-    timer -= 0.045;
-    if (timer <= 0) die();
 
     const targetCameraY = -(player.y - CANVAS_H + 280);
     cameraY += (targetCameraY - cameraY) * 0.1;
@@ -250,7 +242,7 @@ function draw() {
 
         lane.obstacles.forEach(obs => {
             if (lane.type === 'road') {
-                ctx.fillStyle = lane.obstacleColor; // Lane-specific car color
+                ctx.fillStyle = lane.obstacleColor;
                 ctx.fillRect(obs.x, lane.y + 6, obs.w, 28);
                 ctx.fillStyle = '#000000aa';
                 ctx.fillRect(obs.x + 8, lane.y + 10, obs.w - 16, 20);
@@ -259,7 +251,7 @@ function draw() {
                 ctx.fillRect(hx, lane.y + 8, 4, 4);
                 ctx.fillRect(hx, lane.y + 28, 4, 4);
             } else if (lane.type === 'river') {
-                ctx.fillStyle = lane.obstacleColor; // Lane-specific log color
+                ctx.fillStyle = lane.obstacleColor;
                 ctx.fillRect(obs.x, lane.y + 4, obs.w, 32);
                 ctx.fillStyle = '#00000022';
                 for(let bx=15; bx < obs.w; bx+=35) ctx.fillRect(obs.x + bx, lane.y + 4, 3, 32);
@@ -267,16 +259,29 @@ function draw() {
         });
     });
 
-    // DRAW FRANK
+    // DRAW FRANK (WITH ARMS / BRACINHOS)
     const px = player.x + 5;
     const py = player.y + 5;
+    
+    // Skin (Face, Body, Legs)
     ctx.fillStyle = COLORS.FRANK_SKIN;
+    // Torso
     ctx.fillRect(px, py + 15, 20, 10);
+    // Legs
     ctx.fillRect(px + 4, py + 25, 4, 5); 
     ctx.fillRect(px + 12, py + 25, 4, 5);
+    // Head
     ctx.fillRect(px, py + 5, 20, 10);
+    
+    // ARMS (BRACINHOS)
+    ctx.fillRect(px - 4, py + 16, 4, 8); // Arm L
+    ctx.fillRect(px + 20, py + 16, 4, 8); // Arm R
+
+    // Hair
     ctx.fillStyle = COLORS.FRANK_HAIR;
     ctx.fillRect(px, py + 2, 20, 6);
+
+    // Eyes
     ctx.fillStyle = COLORS.BLACK;
     ctx.fillRect(px + 4, py + 9, 3, 3);
     ctx.fillRect(px + 13, py + 9, 3, 3);
