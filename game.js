@@ -8,8 +8,8 @@ const startBtn = document.getElementById('start-btn');
 
 // Game Constants
 const GRID = 40;
-const ROWS = 13;
-const COLS = 12;
+const CANVAS_W = 480;
+const CANVAS_H = 520;
 
 const COLORS = {
     BLACK: '#000000',
@@ -20,65 +20,77 @@ const COLORS = {
     PINK: '#ff00ff',
     ORANGE: '#ffaa00',
     PURPLE: '#9900ff',
-    WHITE: '#ffffff'
+    WHITE: '#ffffff',
+    CHECKPOINT: '#ffffff'
 };
 
 let score = 0;
 let lives = 4;
-let gameState = 'MENU'; // MENU, PLAYING, GAMEOVER
+let gameState = 'MENU';
 let timer = 100;
+let cameraY = 0;
 
 const player = {
-    x: 5 * GRID,
-    y: 12 * GRID,
-    targetX: 5 * GRID,
-    targetY: 12 * GRID,
+    x: CANVAS_W / 2 - 15,
+    y: CANVAS_H - 80,
     w: 30,
     h: 30,
+    speed: 4,
     color: COLORS.LIGHT_GREEN,
-    moveSpeed: 0.25, // For smooth interpolation
     reset() {
-        this.x = 5 * GRID;
-        this.y = 12 * GRID;
-        this.targetX = 5 * GRID;
-        this.targetY = 12 * GRID;
+        this.x = CANVAS_W / 2 - 15;
+        this.y = CANVAS_H - 80;
+        cameraY = 0;
+        initMap();
     }
 };
 
-// Easier difficulty: Larger gaps and slower speeds
-const lanes = [
-    { y: 11 * GRID, speed: -1.0, color: COLORS.PINK, type: 'car', gap: 250, w: 40 },
-    { y: 10 * GRID, speed: 0.8, color: COLORS.LIGHT_GREEN, type: 'car', gap: 300, w: 40 },
-    { y: 9 * GRID, speed: -1.2, color: COLORS.PURPLE, type: 'car', gap: 280, w: 40 },
-    { y: 8 * GRID, speed: 0.7, color: COLORS.ORANGE, type: 'car', gap: 250, w: 60 },
-    { y: 7 * GRID, speed: -1.1, color: COLORS.WHITE, type: 'car', gap: 320, w: 40 },
-    
-    // River
-    { y: 5 * GRID, speed: 1.0, color: COLORS.YELLOW, type: 'log', gap: 250, w: 100 },
-    { y: 4 * GRID, speed: -0.8, color: COLORS.ORANGE, type: 'turtle', gap: 220, w: 80 },
-    { y: 3 * GRID, speed: 1.5, color: COLORS.YELLOW, type: 'log', gap: 300, w: 140 },
-    { y: 2 * GRID, speed: -0.7, color: COLORS.ORANGE, type: 'turtle', gap: 250, w: 80 },
-    { y: 1 * GRID, speed: 0.9, color: COLORS.YELLOW, type: 'log', gap: 280, w: 100 }
-];
+const keys = {};
+window.addEventListener('keydown', e => keys[e.key.toLowerCase()] = true);
+window.addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
 
-let obstacles = [];
+// Lane system for infinite map
+let lanes = [];
+let nextLaneY = CANVAS_H - GRID;
+const CHECKPOINT_FREQ = 8; // Every 8 lanes
 
-function initObstacles() {
-    obstacles = [];
-    lanes.forEach(lane => {
-        // Reduced initial count for easier start
-        for (let x = -100; x < canvas.width + lane.gap; x += lane.gap) {
-            obstacles.push({
-                x: x,
-                y: lane.y + 5,
-                w: lane.w,
-                h: 30,
-                speed: lane.speed,
-                color: lane.color,
-                type: lane.type
-            });
+function createLane(y) {
+    const laneIndex = Math.abs(Math.floor(y / GRID));
+    let type = 'road';
+    let color = COLORS.BLACK;
+    let speed = (Math.random() > 0.5 ? 1 : -1) * (0.8 + Math.random() * 1.5);
+    let obstacleColor = [COLORS.PINK, COLORS.PURPLE, COLORS.ORANGE, COLORS.WHITE][Math.floor(Math.random() * 4)];
+    let gap = 200 + Math.random() * 200;
+    let obsW = 40;
+
+    if (laneIndex % CHECKPOINT_FREQ === 0) {
+        type = 'checkpoint';
+        color = COLORS.YELLOW;
+    } else if (Math.random() > 0.6) {
+        type = 'river';
+        color = COLORS.BLUE;
+        obstacleColor = Math.random() > 0.5 ? COLORS.YELLOW : COLORS.ORANGE;
+        obsW = 80 + Math.random() * 60;
+    }
+
+    const rowObstacles = [];
+    if (type !== 'checkpoint') {
+        for (let x = -200; x < CANVAS_W + gap; x += gap) {
+            rowObstacles.push({ x, w: obsW, h: 30 });
         }
-    });
+    }
+
+    return { y, type, color, speed, obstacleColor, obstacles: rowObstacles, reached: false };
+}
+
+function initMap() {
+    lanes = [];
+    nextLaneY = CANVAS_H - GRID;
+    // Generate initial set
+    for (let i = 0; i < 20; i++) {
+        lanes.push(createLane(nextLaneY));
+        nextLaneY -= GRID;
+    }
 }
 
 function updateUI() {
@@ -101,156 +113,138 @@ function die() {
         menuOverlay.querySelector('h2').textContent = "FIM DE JOGO!\nSCORE: " + score;
         score = 0;
         lives = 4;
+    } else {
+        // Back to last checkpoint logic simplified: find nearest safety below
+        const safety = lanes.find(l => l.type === 'checkpoint' && l.y > player.y);
+        if (safety) {
+            player.y = safety.y + 5;
+            cameraY = -(player.y - CANVAS_H + 150);
+        } else {
+            player.reset();
+        }
     }
-    player.reset();
     updateUI();
 }
 
 function checkCollision() {
-    const row = Math.floor((player.y + player.h/2) / GRID);
-    
-    // Road lanes (7-11)
-    if (row >= 7 && row <= 11) {
-        for (let obs of obstacles) {
-            if (obs.type === 'car') {
-                if (player.x < obs.x + obs.w && player.x + player.w > obs.x && player.y < obs.y + obs.h && player.y + player.h > obs.y) {
-                    die();
-                    return;
-                }
+    const lane = lanes.find(l => player.y + player.h > l.y && player.y < l.y + GRID);
+    if (!lane) return;
+
+    if (lane.type === 'checkpoint' && !lane.reached) {
+        lane.reached = true;
+        score += 50;
+        timer = Math.min(100, timer + 20); // Bonus time
+    }
+
+    if (lane.type === 'road') {
+        for (let obs of lane.obstacles) {
+            if (player.x < obs.x + obs.w && player.x + player.w > obs.x) {
+                die();
+                return;
             }
         }
     }
-    
-    // River lanes (1-5)
-    if (row >= 1 && row <= 5) {
+
+    if (lane.type === 'river') {
         let onPlatform = false;
-        for (let obs of obstacles) {
-            if (obs.type === 'log' || obs.type === 'turtle') {
-                if (player.x < obs.x + obs.w && player.x + player.w > obs.x && player.y < obs.y + obs.h && player.y + player.h > obs.y) {
-                    onPlatform = true;
-                    // Push player targets along with platform speed
-                    player.x += obs.speed;
-                    player.targetX += obs.speed;
-                    break;
-                }
+        for (let obs of lane.obstacles) {
+            if (player.x < obs.x + obs.w && player.x + player.w > obs.x) {
+                onPlatform = true;
+                player.x += lane.speed; // Move with river item
+                break;
             }
         }
-        if (!onPlatform) {
-            die();
-            return;
-        }
+        if (!onPlatform) die();
     }
 
-    // Goal (Row 0)
-    if (row === 0) {
-        const col = Math.floor((player.x + player.w/2) / GRID);
-        if (col % 2 === 1) { 
-            player.targetY = GRID;
-        } else {
-            score += 100;
-            timer = 100;
-            player.reset();
-        }
-    }
-
-    // Bounds check
-    if (player.x < -10 || player.x + player.w > canvas.width + 10) {
-        die();
-    }
+    if (player.x < 0 || player.x + player.w > CANVAS_W) die();
+    // Special: Fell off bottom of screen
+    if (player.y > -cameraY + CANVAS_H) die();
 }
 
-// Menu Controls
 startBtn.addEventListener('click', () => {
     gameState = 'PLAYING';
     menuOverlay.style.display = 'none';
-    score = 0;
-    lives = 4;
-    timer = 100;
     player.reset();
-    initObstacles();
     updateUI();
-});
-
-window.addEventListener('keydown', e => {
-    if (gameState !== 'PLAYING') return;
-    
-    // Only allow new move if player is roughly at target (prevents queuing multiple jumps)
-    const isStationary = Math.abs(player.x - player.targetX) < 1 && Math.abs(player.y - player.targetY) < 1;
-    if (!isStationary) return;
-
-    switch(e.key) {
-        case 'ArrowUp': player.targetY -= GRID; break;
-        case 'ArrowDown': if (player.targetY < 12 * GRID) player.targetY += GRID; break;
-        case 'ArrowLeft': player.targetX -= GRID; break;
-        case 'ArrowRight': player.targetX += GRID; break;
-    }
-    
-    if (player.targetY < 0) player.targetY = 0;
 });
 
 function update() {
     if (gameState !== 'PLAYING') return;
 
-    timer -= 0.04;
+    timer -= 0.03;
     if (timer <= 0) die();
 
-    // Smooth movement interpolation
-    player.x += (player.targetX - player.x) * player.moveSpeed;
-    player.y += (player.targetY - player.y) * player.moveSpeed;
+    // Continuous Movement (WASD + Arrows)
+    if (keys['w'] || keys['arrowup']) player.y -= player.speed;
+    if (keys['s'] || keys['arrowdown']) player.y += player.speed;
+    if (keys['a'] || keys['arrowleft']) player.x -= player.speed;
+    if (keys['d'] || keys['arrowright']) player.x += player.speed;
 
-    obstacles.forEach(obs => {
-        obs.x += obs.speed;
-        if (obs.speed > 0 && obs.x > canvas.width + 20) obs.x = -obs.w - 100;
-        if (obs.speed < 0 && obs.x < -obs.w - 20) obs.x = canvas.width + 100;
+    // Smooth Camera Follow
+    const targetCameraY = -(player.y - CANVAS_H + 200);
+    cameraY += (targetCameraY - cameraY) * 0.1;
+
+    // Lane Generation and Cleaning
+    lanes.forEach(lane => {
+        if (lane.type !== 'checkpoint') {
+            lane.obstacles.forEach(obs => {
+                obs.x += lane.speed;
+                if (lane.speed > 0 && obs.x > CANVAS_W + 50) obs.x = -obs.w - 100;
+                if (lane.speed < 0 && obs.x < -obs.w - 50) obs.x = CANVAS_W + 100;
+            });
+        }
     });
 
+    if (player.y < nextLaneY + (GRID * 10)) {
+        for (let i = 0; i < 5; i++) {
+            lanes.push(createLane(nextLaneY));
+            nextLaneY -= GRID;
+        }
+    }
+    
+    // Clean old lanes (optimization)
+    if (lanes.length > 50) lanes.shift();
+
     checkCollision();
-    updateUI();
 }
 
 function draw() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 0, CANVAS_W, CANVAS_H);
 
-    // Draw Background
-    ctx.fillStyle = COLORS.YELLOW;
-    ctx.fillRect(0, 12 * GRID, canvas.width, GRID); // Start
-    ctx.fillStyle = COLORS.BLACK;
-    ctx.fillRect(0, 7 * GRID, canvas.width, 5 * GRID); // Road
-    ctx.fillStyle = COLORS.YELLOW;
-    ctx.fillRect(0, 6 * GRID, canvas.width, GRID); // Middle
-    ctx.fillStyle = COLORS.BLUE;
-    ctx.fillRect(0, 1 * GRID, canvas.width, 5 * GRID); // River
-    ctx.fillStyle = COLORS.GREEN;
-    ctx.fillRect(0, 0, canvas.width, GRID); // Goal
-    
-    // Goal Niches
-    ctx.fillStyle = COLORS.BLUE;
-    for (let i = 0; i < COLS; i += 2) {
-        ctx.fillRect(i * GRID, 0, GRID, GRID);
-    }
+    ctx.save();
+    ctx.translate(0, cameraY);
 
-    // Draw Obstacles
-    obstacles.forEach(obs => {
-        ctx.fillStyle = obs.color;
-        if (obs.type === 'turtle') {
-            ctx.fillRect(obs.x, obs.y, 25, 25);
-            ctx.fillRect(obs.x + 35, obs.y, 25, 25);
-        } else {
-            ctx.fillRect(obs.x, obs.y, obs.w, obs.h);
+    // Draw Lanes
+    lanes.forEach(lane => {
+        ctx.fillStyle = lane.color;
+        ctx.fillRect(0, lane.y, CANVAS_W, GRID);
+
+        if (lane.type === 'checkpoint') {
+            ctx.fillStyle = COLORS.WHITE;
+            ctx.font = "10px 'Press Start 2P'";
+            ctx.fillText("CHECKPOINT", 10, lane.y + 25);
         }
+
+        ctx.fillStyle = lane.obstacleColor;
+        lane.obstacles.forEach(obs => {
+            ctx.fillRect(obs.x, lane.y + 5, obs.w, 30);
+        });
     });
 
     // Draw Player (Frank)
     ctx.fillStyle = player.color;
-    ctx.fillRect(player.x + 5, player.y + 5, player.w - 10, player.h - 10);
+    ctx.fillRect(player.x, player.y, player.w, player.h);
     ctx.fillStyle = COLORS.BLACK;
-    ctx.fillRect(player.x + 10, player.y + 10, 4, 4);
-    ctx.fillRect(player.x + 20, player.y + 10, 4, 4);
+    ctx.fillRect(player.x + 5, player.y + 5, 4, 4);
+    ctx.fillRect(player.x + 20, player.y + 5, 4, 4);
+
+    ctx.restore();
 
     requestAnimationFrame(draw);
 }
 
 setInterval(update, 1000/60);
-initObstacles();
+initMap();
 updateUI();
 draw();
