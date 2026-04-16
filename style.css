@@ -6,62 +6,66 @@ body {
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    /* Forces full viewport size immediately */
+    width: 100vw;
     height: 100vh;
     margin: 0;
     overflow: hidden;
 }
 
 #game-container {
-    position: relative;
-    padding: 10px;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
     background: #000;
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 100%;
-    max-width: 600px;
-}
-
-/* Fullscreen support */
-#game-container:-webkit-full-screen {
-    width: 100% !important;
-    height: 100% !important;
-    max-width: none !important;
-    display: flex;
     justify-content: center;
-    align-items: center;
 }
 
 #ui-top {
+    position: absolute;
+    top: 20px;
     width: 100%;
     text-align: center;
-    margin-bottom: 10px;
+    z-index: 5;
+    pointer-events: none;
 }
 
 #game-title {
     font-size: 14px;
     color: #ff00ff;
     margin: 5px 0;
+    text-shadow: 2px 2px #000;
 }
 
 #score {
     color: #ffff00;
-    font-size: 24px;
+    font-size: 32px;
+    text-shadow: 3px 3px #000;
 }
 
 #canvas-wrapper {
     position: relative;
     width: 100%;
+    height: 100%;
     display: flex;
     justify-content: center;
+    align-items: center;
 }
 
 canvas {
     background-color: #000;
-    border: 4px solid #fff;
+    border: none; /* Removed border for true fullscreen feel */
     image-rendering: pixelated;
-    max-width: 100%;
-    height: auto;
+    /* Scale canvas to fit the taller dimension while maintaining ratio */
+    max-height: 100vh;
+    max-width: 100vw;
+    width: auto;
+    height: 100vh; 
 }
 
 #menu-overlay {
@@ -70,39 +74,47 @@ canvas {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.9);
+    background: rgba(0, 0, 0, 0.95);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 10;
+    z-index: 20;
 }
 
 #start-btn {
-    padding: 20px 30px;
+    padding: 30px 50px;
     font-family: 'Press Start 2P', cursive;
-    font-size: 18px;
+    font-size: 24px;
     background-color: #ffff00;
     color: #000;
-    border: 6px solid #fff;
+    border: 8px solid #fff;
     cursor: pointer;
-    box-shadow: 0 0 15px #ffff00;
+    box-shadow: 0 0 30px #ffff00;
 }
 
 #ui-bottom {
+    position: absolute;
+    bottom: 20px;
     width: 100%;
     display: flex;
     justify-content: center;
-    margin-top: 10px;
+    z-index: 5;
+    pointer-events: none;
 }
 
 #lives {
     display: flex;
-    gap: 10px;
+    gap: 15px;
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 10px;
 }
 
 p {
+    position: absolute;
+    bottom: 80px;
     font-size: 10px;
     color: #888;
-    margin-top: 15px;
+    z-index: 5;
 }
