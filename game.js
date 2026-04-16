@@ -66,19 +66,31 @@ function createLane(y, forceType = null) {
     
     let type = forceType || 'road';
     if (!forceType) {
-        if (laneIndex % CHECKPOINT_FREQ === 0) type = 'checkpoint';
-        else if (Math.random() > 0.45 && laneIndex % CHECKPOINT_FREQ > 3) type = 'river';
+        if (laneIndex % CHECKPOINT_FREQ === 0) {
+            type = 'checkpoint';
+        } else {
+            // REDUCED WATER FREQUENCY: Only 25% chance of river, mostly road
+            if (Math.random() > 0.75 && laneIndex % CHECKPOINT_FREQ > 4) {
+                type = 'river';
+            } else {
+                type = 'road';
+            }
+        }
     }
 
-    let speed = (Math.random() > 0.5 ? 1 : -1) * (1.3 + Math.random() * 0.7);
-    let gap = 240 + Math.random() * 120; // Fair spacing
-    let obsW = (type === 'river') ? 100 : 40;
+    let speed = (Math.random() > 0.5 ? 1 : -1) * (1.1 + Math.random() * 0.6);
+    
+    // INCREASED GAP FOR FAIRNESS: 
+    // Cars: at least 7 grid spaces apart
+    // Logs: at least 6 grid spaces apart
+    let obsW = (type === 'river') ? 120 : 40;
+    let gap = (type === 'river') ? 350 + Math.random() * 150 : 320 + Math.random() * 180;
 
     const rowObstacles = [];
     if (type !== 'checkpoint' && type !== 'sidewalk') {
-        const offset = Math.random() * 400;
-        for (let x = -400 + offset; x < CANVAS_W + 1200; x += gap) {
-            rowObstacles.push({ x, w: obsW });
+        const offset = Math.random() * 500;
+        for (let x = -500 + offset; x < CANVAS_W + 1500; x += gap) {
+            rowObstacles.push({ x, w: obsW, h: 32 });
         }
     }
 
@@ -130,13 +142,14 @@ function checkCollision() {
     if (lane.type === 'checkpoint' && !lane.reached) {
         lane.reached = true;
         score += 50;
-        timer = Math.min(100, timer + 30);
+        timer = Math.min(100, timer + 40);
         lastCheckpointY = lane.y;
     }
 
     if (lane.type === 'road') {
         for (let obs of lane.obstacles) {
-            if (player.x < obs.x + obs.obsW && player.x + player.w > obs.x) {
+            // Slightly smaller car hitbox for fairness
+            if (player.x < obs.x + obs.w - 4 && player.x + player.w > obs.x + 4) {
                 die();
                 return;
             }
@@ -146,7 +159,8 @@ function checkCollision() {
     if (lane.type === 'river') {
         let onPlatform = false;
         for (let obs of lane.obstacles) {
-            if (player.x < obs.x + obs.obsW && player.x + player.w > obs.x) {
+            // Slightly LARGER log hitbox for fairness
+            if (player.x < obs.x + obs.w + 5 && player.x + player.w > obs.x - 5) {
                 onPlatform = true;
                 player.x += lane.speed;
                 break;
@@ -155,7 +169,7 @@ function checkCollision() {
         if (!onPlatform) die();
     }
 
-    if (player.x < -10 || player.x + player.w > CANVAS_W + 10) die();
+    if (player.x < -20 || player.x + player.w > CANVAS_W + 20) die();
     if (player.y > -cameraY + CANVAS_H) die();
 }
 
@@ -179,7 +193,7 @@ window.addEventListener('keydown', e => {
 function update() {
     if (gameState !== 'PLAYING') return;
     frames++;
-    timer -= 0.05;
+    timer -= 0.045;
     if (timer <= 0) die();
 
     const targetCameraY = -(player.y - CANVAS_H + 280);
@@ -189,8 +203,8 @@ function update() {
         if (lane.type !== 'checkpoint' && lane.type !== 'sidewalk') {
             lane.obstacles.forEach(obs => {
                 obs.x += lane.speed;
-                if (lane.speed > 0 && obs.x > CANVAS_W + 200) obs.x = -200;
-                if (lane.speed < 0 && obs.x < -200) obs.x = CANVAS_W + 200;
+                if (lane.speed > 0 && obs.x > CANVAS_W + 300) obs.x = -300;
+                if (lane.speed < 0 && obs.x < -300) obs.x = CANVAS_W + 300;
             });
         }
     });
@@ -211,22 +225,19 @@ function draw() {
     ctx.translate(0, cameraY);
 
     lanes.forEach(lane => {
-        // DRAW BACKGROUND
         if (lane.type === 'road') {
             ctx.fillStyle = lane.theme.road;
             ctx.fillRect(0, lane.y, CANVAS_W, GRID);
-            // Road dashes (Yellow/White)
-            ctx.fillStyle = '#ffffff44';
+            ctx.fillStyle = '#ffffff33';
             for(let i=0; i<CANVAS_W; i+=40) ctx.fillRect(i, lane.y + GRID/2 - 1, 15, 2);
         } else if (lane.type === 'river') {
             ctx.fillStyle = lane.theme.river;
             ctx.fillRect(0, lane.y, CANVAS_W, GRID);
-            // Water Ripples
             ctx.fillStyle = '#ffffff22';
             for(let i=0; i<5; i++) {
-                let wx = ((frames + i*120) % (CANVAS_W+100)) - 50;
-                ctx.fillRect(wx, lane.y + 10, 10, 2);
-                ctx.fillRect(wx + 40, lane.y + 25, 10, 2);
+                let wx = ((frames + i*130) % (CANVAS_W+150)) - 75;
+                ctx.fillRect(wx, lane.y + 10, 15, 2);
+                ctx.fillRect(wx + 50, lane.y + 25, 12, 2);
             }
         } else if (lane.type === 'checkpoint') {
             ctx.fillStyle = lane.theme.safe;
@@ -236,33 +247,29 @@ function draw() {
             ctx.textAlign = "center";
             ctx.fillText("CHECKPOINT", CANVAS_W/2, lane.y + 25);
         } else {
-            ctx.fillStyle = '#555555'; // sidewalk
+            ctx.fillStyle = '#444'; // sidewalk
             ctx.fillRect(0, lane.y, CANVAS_W, GRID);
         }
 
-        // DRAW OBSTACLES
         lane.obstacles.forEach(obs => {
             if (lane.type === 'road') {
-                // CAR SHAPE
                 ctx.fillStyle = lane.theme.car;
-                ctx.fillRect(obs.x, lane.y + 6, lane.obsW, 28); // Body
+                ctx.fillRect(obs.x, lane.y + 6, obs.w, 28);
                 ctx.fillStyle = '#000000aa';
-                ctx.fillRect(obs.x + 8, lane.y + 10, lane.obsW - 16, 20); // Roof/Windows
-                ctx.fillStyle = '#ffff00'; // Headlights
-                let headlightX = lane.speed > 0 ? obs.x + lane.obsW - 6 : obs.x + 2;
-                ctx.fillRect(headlightX, lane.y + 8, 4, 4);
-                ctx.fillRect(headlightX, lane.y + 28, 4, 4);
+                ctx.fillRect(obs.x + 8, lane.y + 10, obs.w - 16, 20);
+                ctx.fillStyle = '#ffff00';
+                let hx = lane.speed > 0 ? obs.x + obs.w - 6 : obs.x + 2;
+                ctx.fillRect(hx, lane.y + 8, 4, 4);
+                ctx.fillRect(hx, lane.y + 28, 4, 4);
             } else if (lane.type === 'river') {
-                // LOG SHAPE
                 ctx.fillStyle = lane.theme.log;
-                ctx.fillRect(obs.x, lane.y + 4, lane.obsW, 32);
-                ctx.fillStyle = '#00000022'; // Bark texture
-                for(let bx=10; bx < lane.obsW; bx+=30) ctx.fillRect(obs.x + bx, lane.y + 4, 4, 32);
+                ctx.fillRect(obs.x, lane.y + 4, obs.w, 32);
+                ctx.fillStyle = '#00000022';
+                for(let bx=15; bx < obs.w; bx+=35) ctx.fillRect(obs.x + bx, lane.y + 4, 3, 32);
             }
         });
     });
 
-    // Draw Frank
     ctx.fillStyle = player.color;
     ctx.fillRect(player.x + 5, player.y + 5, 30, 30);
     ctx.fillStyle = COLORS.BLACK;
