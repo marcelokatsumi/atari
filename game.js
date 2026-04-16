@@ -13,20 +13,18 @@ const CANVAS_H = 520;
 
 const COLORS = {
     BLACK: '#000000',
-    ROAD_GREY: '#1a1a1a', 
-    DEEP_BLUE: '#000044',
-    SIDEWALK_GREY: '#555555',
-    CHECKPOINT_GREEN: '#004400',
-    LIGHT_GREEN: '#66ff66',
     WHITE: '#ffffff',
+    LIGHT_GREEN: '#66ff66',
     YELLOW: '#ffff00',
     PINK: '#ff00ff'
 };
 
 const THEMES = [
-    { name: 'CITY', road: '#111111', river: '#000055', safe: '#444444', wave: '#00aaff' },
-    { name: 'FOREST', road: '#1a0d00', river: '#004444', safe: '#224400', wave: '#00ffaa' },
-    { name: 'MARS', road: '#220000', river: '#660000', safe: '#441100', wave: '#ff4400' }
+    { name: 'NIGHT CITY', road: '#111111', river: '#000044', safe: '#333333', accent: '#ffffff', wave: '#5555ff' },
+    { name: 'RED DESERT', road: '#441100', river: '#994400', safe: '#662200', accent: '#ffcc00', wave: '#ff8800' },
+    { name: 'DEEP FOREST', road: '#0d2200', river: '#003322', safe: '#1a4400', accent: '#88ff88', wave: '#00cc88' },
+    { name: 'SYNTH WAVE', road: '#220033', river: '#440066', safe: '#000022', accent: '#00ffff', wave: '#ff00ff' },
+    { name: 'WINTER', road: '#223344', river: '#44aabb', safe: '#ffffff', accent: '#000000', wave: '#ffffff' }
 ];
 
 let score = 0;
@@ -42,7 +40,7 @@ const player = {
     y: CANVAS_H - GRID,
     w: 30,
     h: 30,
-    color: COLORS.LIGHT_GREEN,
+    color: '#66ff66',
     reset(full = false) {
         if (full || lastCheckpointY === null) {
             this.x = 5 * GRID;
@@ -70,50 +68,40 @@ function createLane(y, forceType = null) {
     let type = forceType || 'road';
     if (!forceType) {
         if (laneIndex % CHECKPOINT_FREQ === 0) type = 'checkpoint';
-        else if (Math.random() > 0.5 && laneIndex % CHECKPOINT_FREQ > 3) type = 'river';
+        else if (Math.random() > 0.45 && laneIndex % CHECKPOINT_FREQ > 2) type = 'river';
     }
 
     let color = theme.road;
-    if (type === 'checkpoint') color = COLORS.CHECKPOINT_GREEN;
-    else if (type === 'sidewalk') color = COLORS.SIDEWALK_GREY;
+    if (type === 'checkpoint') color = theme.safe;
+    else if (type === 'sidewalk') color = '#555555';
     else if (type === 'river') color = theme.river;
 
-    let speed = (Math.random() > 0.5 ? 1 : -1) * (1.2 + Math.random() * 1.5);
+    let speed = (Math.random() > 0.5 ? 1 : -1) * (1.1 + Math.random() * 0.9);
     
-    // Better CONTRAST for obstacles
-    let obstacleColor = (type === 'river') ? COLORS.YELLOW : COLORS.PINK;
-    if (Math.random() > 0.5 && type === 'road') obstacleColor = COLORS.WHITE;
-
-    let gap = 280 + Math.random() * 150; 
-    let obsW = 40;
-
-    if (type === 'river') {
-        obsW = 100;
-        gap = 300 + Math.random() * 100;
-    }
+    // GUARANTEED FAIRNESS: Fixed spacing logic
+    let obsW = (type === 'river') ? 110 : 45;
+    let minGap = obsW + (GRID * 5); // Ensure at least 5 grid spaces between enemies
+    let gap = minGap + Math.random() * 100;
 
     const rowObstacles = [];
     if (type !== 'checkpoint' && type !== 'sidewalk') {
-        const offset = Math.random() * 600;
-        for (let x = -500 + offset; x < CANVAS_W + 1500; x += gap) {
+        const startX = -400 + (Math.random() * 200);
+        for (let x = startX; x < CANVAS_W + 1500; x += gap) {
             rowObstacles.push({ x, w: obsW, h: 32 });
         }
     }
 
-    return { y, type, color, speed, obstacleColor, obstacles: rowObstacles, reached: false, theme };
+    return { y, type, color, speed, obstacleColor: theme.accent, obstacles: rowObstacles, reached: false, theme };
 }
 
 function initMap() {
     lanes = [];
     nextLaneY = CANVAS_H;
-    
-    // Initial safe sidewalk (NOT checkpoint)
     lanes.push(createLane(nextLaneY, 'sidewalk'));
     nextLaneY -= GRID;
     lanes.push(createLane(nextLaneY, 'sidewalk'));
     nextLaneY -= GRID;
-
-    for (let i = 0; i < 30; i++) {
+    for (let i = 0; i < 40; i++) {
         lanes.push(createLane(nextLaneY));
         nextLaneY -= GRID;
     }
@@ -136,7 +124,7 @@ function die() {
     if (lives < 0) {
         gameState = 'MENU';
         menuOverlay.style.display = 'flex';
-        menuOverlay.querySelector('h2').textContent = "GAME OVER!\nSCORE: " + score;
+        menuOverlay.querySelector('h2').innerText = "FIM DE JOGO!\nSCORE: " + score;
         score = 0;
         lives = 4;
         player.reset(true);
@@ -212,20 +200,20 @@ function update() {
         if (lane.type !== 'checkpoint' && lane.type !== 'sidewalk') {
             lane.obstacles.forEach(obs => {
                 obs.x += lane.speed;
-                if (lane.speed > 0 && obs.x > CANVAS_W + 200) obs.x = -200;
-                if (lane.speed < 0 && obs.x < -200) obs.x = CANVAS_W + 200;
+                if (lane.speed > 0 && obs.x > CANVAS_W + 300) obs.x = -300;
+                if (lane.speed < 0 && obs.x < -300) obs.x = CANVAS_W + 300;
             });
         }
     });
 
     if (player.y < nextLaneY + (GRID * 15)) {
-        for (let i = 0; i < 8; i++) {
+        for (let i = 0; i < 10; i++) {
             lanes.push(createLane(nextLaneY));
             nextLaneY -= GRID;
         }
     }
-    if (lanes.length > 80) {
-        if (lanes[0].y > -cameraY + CANVAS_H + GRID * 10) lanes.shift();
+    if (lanes.length > 100) {
+        if (lanes[0].y > -cameraY + CANVAS_H + GRID * 15) lanes.shift();
     }
 
     checkCollision();
@@ -238,53 +226,43 @@ function draw() {
     ctx.translate(0, cameraY);
 
     lanes.forEach(lane => {
-        // Base Lane Background
         ctx.fillStyle = lane.color;
         ctx.fillRect(0, lane.y, CANVAS_W, GRID);
 
-        // IDENTIFY ROAD: Lane separators
+        // Visual Lane Markers
         if (lane.type === 'road') {
-            ctx.fillStyle = '#ffffff22';
-            for (let i = 0; i < CANVAS_W; i += 40) {
-                ctx.fillRect(i, lane.y, 20, 2);
+            ctx.fillStyle = lane.theme.accent + '22';
+            for (let i = 0; i < CANVAS_W; i += 60) {
+                ctx.fillRect(i, lane.y, 30, 2);
             }
         }
 
-        // IDENTIFY WATER: Bubbles and Waves
+        // Water Effects
         if (lane.type === 'river') {
             ctx.fillStyle = lane.theme.wave;
-            for (let i = 0; i < 6; i++) {
-                let wx = ((frames * 0.8 + i * 100) % (CANVAS_W + 40)) - 20;
-                // Draw ripple arcs
-                ctx.beginPath();
-                ctx.arc(wx, lane.y + 20, 5, 0, Math.PI);
-                ctx.strokeStyle = lane.theme.wave + 'aa';
-                ctx.stroke();
+            for (let i = 0; i < 4; i++) {
+                let wx = ((frames * 0.9 + i * 140) % (CANVAS_W + 40)) - 20;
+                ctx.fillRect(wx, lane.y + 18, 20, 3);
             }
         }
 
         if (lane.type === 'checkpoint') {
-            ctx.fillStyle = COLORS.WHITE;
-            ctx.font = "8px 'Press Start 2P'";
+            ctx.fillStyle = lane.theme.accent;
+            ctx.font = "10px 'Press Start 2P'";
             ctx.textAlign = "center";
-            ctx.fillText("CHECKPOINT", CANVAS_W / 2, lane.y + 25);
+            ctx.fillText(lane.theme.name, CANVAS_W / 2, lane.y + 25);
         }
 
-        // Obstacles
         lane.obstacles.forEach(obs => {
             ctx.fillStyle = lane.obstacleColor;
             if (lane.type === 'river') {
-                // Better looking WOOD LOGS
                 ctx.fillRect(obs.x, lane.y + 4, obs.w, 32);
-                ctx.fillStyle = '#331a00aa'; // darker wood detail
-                ctx.fillRect(obs.x + 10, lane.y + 4, 3, 32);
-                ctx.fillRect(obs.x + obs.w - 13, lane.y + 4, 3, 32);
+                ctx.fillStyle = '#00000033';
+                ctx.fillRect(obs.x + (obs.w / 4), lane.y + 4, 4, 32);
+                ctx.fillRect(obs.x + (obs.w * 3 / 4), lane.y + 4, 4, 32);
             } else {
-                // Better looking CARS with contrast
                 ctx.fillRect(obs.x, lane.y + 4, obs.w, 32);
-                ctx.fillStyle = lane.color; // hollowed middle
-                ctx.fillRect(obs.x + 8, lane.y + 10, obs.w - 16, 20);
-                ctx.fillStyle = '#fff'; // headlights
+                ctx.fillStyle = '#fff';
                 let eyeSide = lane.speed > 0 ? obs.x + obs.w - 8 : obs.x + 4;
                 ctx.fillRect(eyeSide, lane.y + 8, 4, 4);
                 ctx.fillRect(eyeSide, lane.y + 22, 4, 4);
@@ -292,7 +270,6 @@ function draw() {
         });
     });
 
-    // Draw Frank
     ctx.fillStyle = player.color;
     ctx.fillRect(player.x + 5, player.y + 5, 30, 30);
     ctx.fillStyle = COLORS.BLACK;
